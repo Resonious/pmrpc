@@ -119,12 +119,19 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
         }
     });
 
-    let response_types: Vec<_> = requests.iter().map(|req| &req.response_type).collect();
-    let response_types: Vec<_> = response_types
-        .into_iter()
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect();
+    let response_types: Vec<_> =
+        requests
+            .iter()
+            .map(|req| &req.response_type)
+            .fold(Vec::new(), |mut acc, ty| {
+                if !acc
+                    .iter()
+                    .any(|x: &&Type| quote!(#x).to_string() == quote!(#ty).to_string())
+                {
+                    acc.push(ty);
+                }
+                acc
+            });
 
     let expanded = quote! {
         #(#request_structs)*
