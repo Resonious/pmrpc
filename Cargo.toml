@@ -2,6 +2,7 @@
 name = "pmrpc"
 version = "0.1.0"
 edition = "2021"
+authors = ["Nigel Baillie <nigel@baillie.dev>"]
 
 [lib]
 proc-macro = true
