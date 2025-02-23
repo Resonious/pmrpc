@@ -11,8 +11,52 @@ struct Request {
     fields: Vec<(Ident, Type)>,
 }
 
+struct DeriveList {
+    derives: Vec<Ident>,
+}
+
 struct RequestList {
+    derives: Option<DeriveList>,
     requests: Vec<Request>,
+}
+
+impl Parse for DeriveList {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let content;
+        syn::parenthesized!(content in input);
+
+        let mut derives = Vec::new();
+        while !content.is_empty() {
+            derives.push(content.parse()?);
+            if !content.is_empty() {
+                content.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(DeriveList { derives })
+    }
+}
+
+impl Parse for RequestList {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let derives = if input.peek(syn::token::Paren) {
+            let derives: DeriveList = input.parse()?;
+            Some(derives)
+        } else {
+            None
+        };
+
+        let mut requests = Vec::new();
+
+        while !input.is_empty() {
+            requests.push(input.parse()?);
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(RequestList { derives, requests })
+    }
 }
 
 impl Parse for Request {
@@ -48,24 +92,15 @@ impl Parse for Request {
     }
 }
 
-impl Parse for RequestList {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut requests = Vec::new();
-
-        while !input.is_empty() {
-            requests.push(input.parse()?);
-            if !input.is_empty() {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        Ok(RequestList { requests })
-    }
-}
-
 #[proc_macro]
 pub fn define_requests(input: TokenStream) -> TokenStream {
-    let RequestList { requests } = parse_macro_input!(input as RequestList);
+    let RequestList { derives, requests } = parse_macro_input!(input as RequestList);
+
+    // Create the derive attribute if specified
+    let derive_attr = derives.map(|d| {
+        let derives = d.derives;
+        quote! { #[derive(#(#derives),*)] }
+    });
 
     let request_structs = requests.iter().map(|req| {
         let name = &req.name;
@@ -75,6 +110,7 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
 
         if fields_count > 0 {
             quote! {
+                #derive_attr
                 #[derive(Debug)]
                 pub struct #name {
                     #(pub #field_names: #field_types,)*
@@ -82,6 +118,7 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
             }
         } else {
             quote! {
+                #derive_attr
                 #[derive(Debug)]
                 pub struct #name;
             }
@@ -144,11 +181,13 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
             fn resp_from_enum(r: Responses) -> Resp;
         }
 
+        #derive_attr
         #[derive(Debug)]
         pub enum Requests {
             #(#request_enum_variants,)*
         }
 
+        #derive_attr
         #[derive(Debug)]
         pub enum Responses {
             #(#response_types(#response_types),)*
