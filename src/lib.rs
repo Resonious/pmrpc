@@ -6,9 +6,8 @@ use syn::{
 };
 
 struct Request {
-    name: Ident,
+    request_type: Ident,
     response_type: Type,
-    fields: Vec<(Ident, Type)>,
 }
 
 struct DeriveList {
@@ -61,33 +60,15 @@ impl Parse for RequestList {
 
 impl Parse for Request {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
+        let request_type = input.parse()?;
         input.parse::<Token![=>]>()?;
 
         // Parse the entire response type as a single Type
         let response_type = input.parse()?;
 
-        let mut fields = Vec::new();
-        if input.peek(syn::token::Brace) {
-            let content;
-            syn::braced!(content in input);
-
-            while !content.is_empty() {
-                let field_name = content.parse()?;
-                content.parse::<Token![:]>()?;
-                let field_type = content.parse()?;
-                fields.push((field_name, field_type));
-
-                if !content.is_empty() {
-                    content.parse::<Token![,]>()?;
-                }
-            }
-        }
-
         Ok(Request {
-            name,
+            request_type,
             response_type,
-            fields,
         })
     }
 }
@@ -102,31 +83,8 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
         quote! { #[derive(#(#derives),*)] }
     });
 
-    let request_structs = requests.iter().map(|req| {
-        let name = &req.name;
-        let fields_count = req.fields.len();
-        let field_names = req.fields.iter().map(|(name, _)| name);
-        let field_types = req.fields.iter().map(|(_, ty)| ty);
-
-        if fields_count > 0 {
-            quote! {
-                #derive_attr
-                #[derive(Debug)]
-                pub struct #name {
-                    #(pub #field_names: #field_types,)*
-                }
-            }
-        } else {
-            quote! {
-                #derive_attr
-                #[derive(Debug)]
-                pub struct #name;
-            }
-        }
-    });
-
     let responds_with_impls = requests.iter().map(|req| {
-        let name = &req.name;
+        let name = &req.request_type;
         let response_type = &req.response_type;
 
         quote! {
@@ -150,7 +108,7 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
     });
 
     let request_enum_variants = requests.iter().map(|req| {
-        let name = &req.name;
+        let name = &req.request_type;
         quote! {
             #name(#name)
         }
@@ -171,8 +129,6 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
             });
 
     let expanded = quote! {
-        #(#request_structs)*
-
         #(#responds_with_impls)*
 
         pub trait RespondsWith<Resp> {
