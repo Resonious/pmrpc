@@ -143,6 +143,14 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
             #(#request_enum_variants,)*
         }
 
+        impl Requests {
+            pub fn name(&self) -> &'static str {
+                match self {
+                    #(Requests::#request_enum_variants => stringify!(#request_enum_variants),)*
+                }
+            }
+        }
+
         #derive_attr
         #[derive(Debug)]
         pub enum Responses {
