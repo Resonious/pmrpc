@@ -103,6 +103,10 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
                         _ => panic!("broken code"),
                     }
                 }
+
+                fn name() -> &'static str {
+                    stringify!(#name)
+                }
             }
         }
     });
@@ -135,20 +139,13 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
             fn to_enum(self) -> Requests;
             fn resp_enum(r: Resp) -> Responses;
             fn resp_from_enum(r: Responses) -> Resp;
+            fn name() -> &'static str;
         }
 
         #derive_attr
         #[derive(Debug)]
         pub enum Requests {
             #(#request_enum_variants,)*
-        }
-
-        impl Requests {
-            pub fn name(&self) -> &'static str {
-                match self {
-                    #(Requests::#request_enum_variants => stringify!(#request_enum_variants),)*
-                }
-            }
         }
 
         #derive_attr
