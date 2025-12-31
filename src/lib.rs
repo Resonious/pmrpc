@@ -90,7 +90,7 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
         quote! {
             impl RespondsWith<#response_type> for #name {
                 fn to_enum(self) -> Requests {
-                    Requests::#name(self)
+                    Requests::#name(self, std::marker::PhantomData)
                 }
 
                 fn resp_enum(r: #response_type) -> Responses {
@@ -114,7 +114,18 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
     let request_enum_variants = requests.iter().map(|req| {
         let name = &req.request_type;
         quote! {
-            #name(#name)
+            #name(#name, std::marker::PhantomData<#name>)
+        }
+    });
+
+    let into_requests_impls = requests.iter().map(|req| {
+        let name = &req.request_type;
+        quote! {
+            impl From<#name> for Requests {
+                fn from(req: #name) -> Requests {
+                    Requests::#name(req, std::marker::PhantomData)
+                }
+            }
         }
     });
 
@@ -147,6 +158,8 @@ pub fn define_requests(input: TokenStream) -> TokenStream {
         pub enum Requests {
             #(#request_enum_variants,)*
         }
+
+        #(#into_requests_impls)*
 
         #derive_attr
         #[derive(Debug)]

@@ -1,6 +1,6 @@
 [package]
 name = "pmrpc"
-version = "1.1.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["Nigel Baillie <nigel@baillie.dev>"]
 description = "Poor man's RPC. Not pretty, but plenty versatile."
